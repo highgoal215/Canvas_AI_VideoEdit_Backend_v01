@@ -3,7 +3,7 @@ import multer, { FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
 import { Background_Remove } from "../control/backgroundRemove/background-remove";
-import { verify } from "../middleware/auth-middleware";
+import { authenticateToken} from "../middleware/auth-middleware";
 
 const router = Router();
 
@@ -77,6 +77,6 @@ const handleUpload = (req: Request, res: Response, next: NextFunction) => {
 };
 
 // Apply routes
-router.post("/remove-background", verify, handleUpload, Background_Remove);
+router.post("/background-remove", authenticateToken, handleUpload, Background_Remove);
 
 export default router;

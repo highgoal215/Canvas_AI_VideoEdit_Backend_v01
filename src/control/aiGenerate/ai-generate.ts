@@ -20,6 +20,7 @@ export const generate_Text = async (req: Request, res: Response) => {
         success: true,
         message: response.choices[0].message?.content || "No content generated",
       });
+      console.log("respond::",response.choices[0].message?.content)
     } else {
       res.status(500).json({
         success: false,

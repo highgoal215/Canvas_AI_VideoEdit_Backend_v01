@@ -7,7 +7,10 @@ import BackgroundEditRoutes from "./routes/background-edit";
 
 const port = process.env.PORT || 5000;
 const app = express();
-app.use(cors());
+app.use(cors(
+  {origin: "http://localhost:8080",
+  credentials:true}
+));
 app.use(express.json());
 app.use("/ai", ai_route);
 app.use("/ai/background-remove", BackgroundEditRoutes);
