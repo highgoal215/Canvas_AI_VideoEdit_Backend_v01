@@ -3,6 +3,6 @@ import { Request, Response } from "express";
 
 // @desc Authenticates user and protects routes
 
-export const verify = (req: Request, res: Response, next: NextFunction) => {
+export const verify = (req: Request, res: Response, next: NextFunction):void => {
   next();
 };

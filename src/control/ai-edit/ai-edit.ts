@@ -1,38 +1,63 @@
-import { Request, Response } from "express";;
+import { Request, Response, NextFunction } from "express";
 import fs from "fs";
 import path from "path";
+import axios from "axios";
+import FormData from "form-data";
 // Extend Request interface to include file
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-export const Background_Remove = async (req: MulterRequest, res: Response) => {
-  console.log("req.file:", req.file);
+export const Background_Remove = async (
+  req: MulterRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  console.log("-------------->req.file:", req.file);
+  console.log("========<>req.body:", req.body);
+
   try {
     // Check if file was uploaded
     if (!req.file) {
-       res.status(400).json({
+      res.status(400).json({
         success: false,
         error: "No image file provided",
       });
+      return;
+    }
+    // Check if API key is configured
+    if (!process.env.REMOVEBG_API_KEY) {
+      res.status(500).json({
+        success: false,
+        error:
+          "Remove.bg API key not configured. Please add REMOVEBG_API_KEY to your .env file",
+      });
+      return;
     }
 
-    const { outputFormat = "png" } = req.body;
-    const inputPath = req.file!.path;
+    const inputPath = req.file.path;
+
+    // Safely get outputFormat with default value
+    const outputFormat = req.body?.outputFormat
+      ? String(req.body.outputFormat).toLowerCase()
+      : "png";
+
+    console.log("Output format:", outputFormat);
 
     // Validate output format
     const validFormats = ["png", "jpg", "jpeg"];
-    if (!validFormats.includes(outputFormat.toLowerCase())) {
+    if (!validFormats.includes(outputFormat)) {
       // Clean up uploaded file
       if (fs.existsSync(inputPath)) {
         fs.unlinkSync(inputPath);
       }
-       res.status(400).json({
+      res.status(400).json({
         success: false,
         error: "Invalid output format. Supported formats: png, jpg, jpeg",
       });
+      return;
     }
- 
+
     // Create output directory if it doesn't exist
     const outputDir = path.join(process.cwd(), "uploads", "processed");
     if (!fs.existsSync(outputDir)) {
@@ -47,9 +72,35 @@ export const Background_Remove = async (req: MulterRequest, res: Response) => {
     console.log("Processing image:", inputPath);
     console.log("Output path:", outputPath);
 
-    // For now, let's just copy the file to test the upload works
-    // Later you can replace this with actual background removal logic
-    fs.copyFileSync(inputPath, outputPath);
+    // Prepare form data for Remove.bg API
+    const formData = new FormData();
+    formData.append("image_file", fs.createReadStream(inputPath));
+    formData.append("size", "auto");
+
+    if (outputFormat !== "png") {
+      formData.append("format", outputFormat);
+    }
+
+    console.log("Calling Remove.bg API...");
+
+    // Call Remove.bg API
+    const response = await axios.post(
+      "https://api.remove.bg/v1.0/removebg",
+      formData,
+      {
+        headers: {
+          "X-Api-Key": process.env.REMOVEBG_API_KEY,
+          ...formData.getHeaders(),
+        },
+        responseType: "arraybuffer",
+        timeout: 60000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    // Write the processed image
+    fs.writeFileSync(outputPath, response.data);
 
     // Clean up input file
     if (fs.existsSync(inputPath)) {
@@ -59,30 +110,66 @@ export const Background_Remove = async (req: MulterRequest, res: Response) => {
     // Get output file stats
     const outputStats = fs.statSync(outputPath);
 
+    console.log("Background removal completed successfully");
+
     // Return success response
     res.status(200).json({
       success: true,
       data: {
         processedImage: `/uploads/processed/${outputFilename}`,
-        originalSize: req.file!.size,
+        downloadUrl: `http://localhost:${process.env.PORT || 3000}/uploads/processed/${outputFilename}`,
+        originalSize: req.file.size,
         processedSize: outputStats.size,
         outputFormat: outputFormat,
         filename: outputFilename,
-        message: "Image processed successfully",
+        message: "Background removed successfully",
       },
       message: "Processing completed",
     });
   } catch (error: any) {
-    console.error("Image processing error:", error);
+    console.error("Background removal error:", error);
 
     // Clean up input file if it exists
     if (req.file?.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error("Error cleaning up file:", cleanupError);
+      }
+    }
+
+    // Handle specific API errors
+    if (error.response) {
+      const statusCode = error.response.status;
+      let errorMessage = "Failed to remove background";
+
+      switch (statusCode) {
+        case 400:
+          errorMessage = "Invalid image format or corrupted file";
+          break;
+        case 402:
+          errorMessage = "Insufficient API credits";
+          break;
+        case 403:
+          errorMessage = "Invalid API key";
+          break;
+        case 429:
+          errorMessage = "Rate limit exceeded";
+          break;
+        default:
+          errorMessage = `API error: ${statusCode}`;
+      }
+
+      res.status(statusCode === 402 || statusCode === 403 ? 503 : 400).json({
+        success: false,
+        error: errorMessage,
+      });
+      return;
     }
 
     res.status(500).json({
       success: false,
-      error: error.message || "Failed to process image",
+      error: error.message || "Failed to remove background",
     });
   }
 };
