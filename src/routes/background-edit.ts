@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import multer, { FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
-import { Background_Remove } from "../control/ai-edit/ai-edit";
+import { Background_Remove } from "../control/backgroundRemove/background-remove";
 import { verify } from "../middleware/auth-middleware";
 
 const router = Router();
