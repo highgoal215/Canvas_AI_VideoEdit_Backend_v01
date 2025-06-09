@@ -6,7 +6,7 @@ import { generate_Voice } from "../control/aiGenerate/voice-generate/voice-gener
 import { authenticateToken } from '../middleware/auth-middleware';
 const router = express.Router();
 router.post("/generate-text",authenticateToken, generate_Text);
-router.post("/generate-image", generate_Image);
+router.post("/generate-image",authenticateToken, generate_Image);
 router.post ("/regenerate-image", regenerate_Image);
 router.post("/generate-video", generate_Video);
 router.post("/generate-voice", generate_Voice);
