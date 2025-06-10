@@ -6,12 +6,16 @@ import {
 } from "../control/aiGenerate/image-generate/image-generate";
 import { generate_Video } from "../control/aiGenerate/video-generate/video-generate";
 import { generate_Voice } from "../control/aiGenerate/voice-generate/voice-generate";
+import { generate_Layout } from "../control/aiGenerate/layout-generate/layout-generate";
 import { authenticateToken } from "../middleware/auth-middleware";
+
 const router = express.Router();
-router.post("/generate-text",authenticateToken, generate_Text);
-router.post("/generate-image",authenticateToken, generate_Image);
-router.post("/regenerate-image",authenticateToken, regenerate_Image);
-router.post("/generate-video",authenticateToken, generate_Video);
-router.post("/generate-voice",authenticateToken, generate_Voice);
+
+router.post("/generate-text", authenticateToken, generate_Text);
+router.post("/generate-image", authenticateToken, generate_Image);
+router.post("/regenerate-image", authenticateToken, regenerate_Image);
+router.post("/generate-video", authenticateToken, generate_Video);
+router.post("/generate-voice", authenticateToken, generate_Voice);
+router.post("/generate-layout", authenticateToken, generate_Layout);
 
 export default router;

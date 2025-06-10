@@ -9,6 +9,12 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Add validation for API key
+if (!process.env.OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is not configured");
+  throw new Error("OpenAI API key is not configured");
+}
+
 interface VideoGenerateRequest {
   prompt: string;
   duration?: string;
@@ -106,7 +112,23 @@ export const generate_Video = async (
           console.warn(`No image URL returned for frame ${i + 1}`);
         }
       } catch (frameError: any) {
-        console.error(`Error generating frame ${i + 1}:`, frameError.message);
+        console.error(`Error generating frame ${i + 1}:`, {
+          message: frameError.message,
+          type: frameError.type,
+          code: frameError.code,
+          status: frameError.status,
+          details: frameError.response?.data
+        });
+        
+        // Add specific error handling for common DALL-E errors
+        if (frameError.type === 'invalid_request_error') {
+          console.error('Invalid request to DALL-E:', frameError.message);
+        } else if (frameError.type === 'authentication_error') {
+          throw new ApiError({}, 401, "OpenAI API authentication failed. Please check your API key.");
+        } else if (frameError.type === 'rate_limit_error') {
+          throw new ApiError({}, 429, "OpenAI API rate limit exceeded. Please try again later.");
+        }
+        
         // Continue with other frames instead of failing completely
         continue;
       }
@@ -156,7 +178,13 @@ export const generate_Video = async (
         )
       );
   } catch (error: any) {
-    console.error("Video generation error:", error);
+    console.error("Video generation error:", {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      status: error.status,
+      details: error.response?.data
+    });
 
     if (error instanceof ApiError) {
       throw error;
@@ -167,7 +195,15 @@ export const generate_Video = async (
       throw new ApiError(
         {},
         400,
-        "Invalid request to AI service. Please check your prompt."
+        `Invalid request to AI service: ${error.message || 'Please check your prompt.'}`
+      );
+    }
+
+    if (error?.status === 401) {
+      throw new ApiError(
+        {},
+        401,
+        "OpenAI API authentication failed. Please check your API key."
       );
     }
 
@@ -182,7 +218,7 @@ export const generate_Video = async (
     throw new ApiError(
       {},
       500,
-      error?.message || "An unexpected error occurred during video generation"
+      `An unexpected error occurred during video generation: ${error.message || 'Unknown error'}`
     );
   }
 };

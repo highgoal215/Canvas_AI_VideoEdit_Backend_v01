@@ -3,9 +3,15 @@ import fs from "fs";
 import path from "path";
 import axios from "axios";
 import FormData from "form-data";
-// Extend Request interface to include file
+import { ProcessedImage } from "../../models/ProcessedImage";
+
+// Extend Request interface to include file and user
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
+  user?: {
+    userId: number;
+    email: string;
+  };
 }
 
 export const Background_Remove = async (
@@ -17,6 +23,15 @@ export const Background_Remove = async (
   console.log("========<>req.body:", req.body);
 
   try {
+    // Check if user is authenticated
+    if (!req.user?.userId) {
+      res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+      return;
+    }
+
     // Check if file was uploaded
     if (!req.file) {
       res.status(400).json({
@@ -110,6 +125,16 @@ export const Background_Remove = async (
     // Get output file stats
     const outputStats = fs.statSync(outputPath);
 
+    // Save processed image information to database
+    const processedImage = await ProcessedImage.create({
+      userId: req.user.userId,
+      originalImagePath: req.file.path,
+      processedImagePath: outputPath,
+      outputFormat: outputFormat,
+      originalSize: req.file.size,
+      processedSize: outputStats.size,
+    });
+
     console.log("Background removal completed successfully");
 
     // Return success response
@@ -123,6 +148,7 @@ export const Background_Remove = async (
         outputFormat: outputFormat,
         filename: outputFilename,
         message: "Background removed successfully",
+        imageId: processedImage.id,
       },
       message: "Processing completed",
     });
