@@ -102,6 +102,7 @@ export const Login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const { email, password } = req.body;
+    console.log("Login attempt for email:", email);
 
     // Find user by email
     const user = await User.findOne({ where: { email } });
@@ -153,6 +154,11 @@ export const Login = async (req: Request, res: Response): Promise<void> => {
       lastLogin: new Date(),
     });
 
+    // Set the token in the response header
+    res.setHeader('Authorization', `Bearer ${accessToken}`);
+    console.log("Set Authorization header in login response:", `Bearer ${accessToken}`);
+
+    // Send the response
     res.status(200).json({
       success: true,
       message: "Login successful",

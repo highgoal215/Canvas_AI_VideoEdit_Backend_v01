@@ -10,10 +10,12 @@ import authRoutes from "./routes/user-route";
 // app.use(express.urlencoded({ extended: true }));
 const port = process.env.PORT;
 const app = express();
-app.use(cors(
-  {origin: "http://localhost:8080",
-  credentials:true}
-));
+app.use(cors({
+  origin: "http://localhost:8080",
+  credentials: true,
+  exposedHeaders: ['Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/ai", ai_route);
