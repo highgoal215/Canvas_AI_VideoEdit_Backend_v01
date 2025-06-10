@@ -1,77 +1,52 @@
-import { NextFunction } from "connect";
-import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { User } from '../models/User';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 interface AuthenticatedRequest extends Request {
-  user?: any;
+  user?: {
+    userId: number;
+    email: string;
+  };
 }
 
-// @desc Authenticates user and protects routes
-export const authenticateToken = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void => {
-  const token =
-    req.header("Authorization")?.replace("Bearer ", "") ||
-    req.header("x-auth-token");
-
-  // Check if token exists
-  if (!token) {
-    res.status(401).json({ message: "No token, authorization denied" });
-    return;
-  }
-
-  // Check if JWT_SECRET exists
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    res.status(500).json({ message: "Server configuration error" });
-    return;
-  }
-
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    // Now both token and jwtSecret are guaranteed to be strings
-    const decoded = jwt.verify(token, jwtSecret);
-    req.user = decoded;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token is required'
+      });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    
+    // Check if user exists and is active
+    const user = await User.findByPk(decoded.userId);
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token or user not found'
+      });
+    }
+
+    // Add user info to request
+    req.user = {
+      userId: user.id,
+      email: user.email
+    };
+
     next();
   } catch (error) {
-    res.status(401).json({ message: "Token is not valid" });
+    console.error('Auth middleware error:', error);
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid or expired token'
+    });
   }
 };
-
-
-
-// export interface AuthenticatedRequest extends Request {
-//   user?: {
-//     id: number;
-//     email: string;
-//     name: string;
-//   };
-// }
-
-// export const authenticateToken = (
-//   req: AuthenticatedRequest,
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   const authHeader = req.headers["authorization"];
-//   const token = authHeader && authHeader.split(" ")[1];
-
-//   if (!token) {
-//     return res.status(401).json({
-//       success: false,
-//       error: "Access token required",
-//     });
-//   }
-
-//   jwt.verify(token, process.env.JWT_SECRET as string, (err: any, user: any) => {
-//     if (err) {
-//       return res.status(403).json({
-//         success: false,
-//         error: "Invalid or expired token",
-//       });
-//     }
-//     req.user = user;
-//     next();
-//   });
-// };

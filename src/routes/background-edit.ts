@@ -77,6 +77,6 @@ const handleUpload = (req: Request, res: Response, next: NextFunction) => {
 };
 
 // Apply routes
-router.post("/background-remove", authenticateToken, handleUpload, Background_Remove);
+router.post("/background-remove", handleUpload, Background_Remove);
 
 export default router;
